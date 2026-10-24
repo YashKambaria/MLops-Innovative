@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PhishGuard URL Checker</title>
+  <style>
+    :root { color-scheme: dark; --bg: #0b1120; --panel: #111b30; --text: #e5eefc; --muted: #91a4c2; --accent: #65a9ff; --danger: #ff7575; --safe: #57d6a0; }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; display: grid; place-items: center; padding: 24px; background: radial-gradient(circle at 20% 0%, #1d3157, var(--bg) 48%); color: var(--text); font: 16px/1.5 system-ui, -apple-system, sans-serif; }
+    main { width: min(680px, 100%); }
+    .eyebrow { color: var(--accent); font-weight: 700; letter-spacing: .12em; text-transform: uppercase; font-size: .78rem; }
+    h1 { margin: 8px 0; font-size: clamp(2rem, 6vw, 3.4rem); line-height: 1.05; }
+    .intro { color: var(--muted); margin: 0 0 28px; }
+    .card { background: color-mix(in srgb, var(--panel) 92%, transparent); border: 1px solid #263957; border-radius: 20px; padding: clamp(20px, 5vw, 36px); box-shadow: 0 20px 70px #0005; }
+    label { display: block; margin-bottom: 8px; font-weight: 650; }
+    .form-row { display: flex; gap: 10px; }
+    input { min-width: 0; flex: 1; border: 1px solid #385174; border-radius: 10px; padding: 13px 14px; background: #0a1325; color: var(--text); font: inherit; }
+    button { border: 0; border-radius: 10px; padding: 0 18px; background: var(--accent); color: #061225; font: inherit; font-weight: 750; cursor: pointer; }
+    button:hover { filter: brightness(1.1); }
+    .result, .error { margin-top: 22px; border-radius: 14px; padding: 18px; }
+    .result { border: 1px solid var(--safe); background: #163b35; }
+    .result.phishing { border-color: var(--danger); background: #48272d; }
+    .result h2 { margin: 0 0 4px; }
+    .result p { margin: 4px 0; color: #d8e5f5; overflow-wrap: anywhere; }
+    .error { border: 1px solid var(--danger); background: #48272d; color: #ffd7d7; }
+    .note { margin-top: 20px; color: var(--muted); font-size: .88rem; }
+    @media (max-width: 520px) { .form-row { flex-direction: column; } button { min-height: 46px; } }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="eyebrow">PhishGuard</div>
+    <h1>Check a URL before you click.</h1>
+    <p class="intro">A local machine-learning model checks URL structure for phishing signals.</p>
+    <section class="card">
+      <form method="post" action="/check">
+        <label for="url">Website URL</label>
+        <div class="form-row">
+          <input id="url" name="url" type="text" placeholder="https://example.com" value="{{ result.url if result else '' }}" required>
+          <button type="submit">Check URL</button>
+        </div>
+      </form>
+      {% if error %}
+        <div class="error" role="alert">{{ error }}</div>
+      {% endif %}
+      {% if result %}
+        <div class="result {{ 'phishing' if result.is_phishing else '' }}" role="status">
+          <h2>{{ result.prediction|capitalize }}</h2>
+          <p><strong>URL:</strong> {{ result.url }}</p>
+          <p><strong>Confidence:</strong> {{ '%.2f'|format(result.confidence * 100) }}%</p>
+        </div>
+      {% endif %}
+      <p class="note">URLs are analyzed as text only. PhishGuard does not visit or resolve submitted URLs.</p>
+    </section>
+  </main>
+</body>
+</html>
