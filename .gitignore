@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+.pytest_cache/
+*.py[cod]
+src/phishguard.egg-info/
+artifacts/*
+!artifacts/model.joblib
+!artifacts/metadata.json
+artifacts/uci/
+data/raw/*
+!data/raw/.gitkeep
