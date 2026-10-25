@@ -9,7 +9,7 @@ pipeline {
     environment {
         IMAGE_NAME = "phishguard:${BUILD_NUMBER}"
         CONTAINER_NAME = "phishguard-ci-${BUILD_NUMBER}"
-        PATH+DOCKER = "/usr/local/bin:/opt/homebrew/bin"
+        PATH = "/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin"
     }
 
     stages {
