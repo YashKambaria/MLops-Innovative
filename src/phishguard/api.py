@@ -9,9 +9,10 @@ from typing import Any
 
 import joblib
 import pandas as pd
-from fastapi import FastAPI, Form, HTTPException, Request
+from fastapi import FastAPI, Form, HTTPException, Request, Response
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field
+from prometheus_client import CONTENT_TYPE_LATEST, CollectorRegistry, Counter, Histogram, generate_latest
 
 from .features import build_feature_frame
 
@@ -46,6 +47,11 @@ def create_app(model_path: Path | None = None) -> FastAPI:
     model = _load_model(resolved_path)
     app = FastAPI(title="PhishGuard API", version="0.1.0")
     templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
+    registry = CollectorRegistry()
+    requests_total = Counter("phishguard_requests_total", "Total prediction requests", ["route"], registry=registry)
+    predictions_total = Counter("phishguard_predictions_total", "Predictions by class", ["prediction"], registry=registry)
+    errors_total = Counter("phishguard_errors_total", "Prediction errors", ["route"], registry=registry)
+    prediction_latency = Histogram("phishguard_prediction_latency_seconds", "Prediction latency", registry=registry)
 
     def classify_url(url: str) -> PredictionResponse:
         try:
@@ -64,6 +70,10 @@ def create_app(model_path: Path | None = None) -> FastAPI:
     @app.get("/health")
     def health() -> dict[str, str]:
         return {"status": "ok", "model": str(resolved_path)}
+
+    @app.get("/metrics", include_in_schema=False)
+    def metrics() -> Response:
+        return Response(content=generate_latest(registry), media_type=CONTENT_TYPE_LATEST)
 
     @app.get("/", include_in_schema=False)
     def home(request: Request):
@@ -96,7 +106,15 @@ def create_app(model_path: Path | None = None) -> FastAPI:
 
     @app.post("/predict", response_model=PredictionResponse)
     def predict(request: PredictionRequest) -> PredictionResponse:
-        return classify_url(request.url)
+        requests_total.labels(route="predict").inc()
+        with prediction_latency.time():
+            try:
+                result = classify_url(request.url)
+            except HTTPException:
+                errors_total.labels(route="predict").inc()
+                raise
+        predictions_total.labels(prediction=result.prediction).inc()
+        return result
 
     return app
 

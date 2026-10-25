@@ -1,0 +1,19 @@
+{
+  "annotations": {"list": []},
+  "editable": false,
+  "graphTooltip": 0,
+  "panels": [
+    {"type": "stat", "title": "Total predictions", "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0}, "targets": [{"expr": "sum(phishguard_predictions_total)", "refId": "A"}]},
+    {"type": "stat", "title": "Phishing predictions", "gridPos": {"h": 4, "w": 6, "x": 6, "y": 0}, "targets": [{"expr": "sum(phishguard_predictions_total{prediction=\"phishing\"})", "refId": "A"}]},
+    {"type": "stat", "title": "Errors", "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0}, "targets": [{"expr": "sum(phishguard_errors_total)", "refId": "A"}]},
+    {"type": "timeseries", "title": "Prediction rate by class", "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4}, "targets": [{"expr": "sum by (prediction) (rate(phishguard_predictions_total[5m]))", "legendFormat": "{{prediction}}", "refId": "A"}]},
+    {"type": "timeseries", "title": "Prediction latency p95", "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4}, "targets": [{"expr": "histogram_quantile(0.95, sum by (le) (rate(phishguard_prediction_latency_seconds_bucket[5m])))", "legendFormat": "p95", "refId": "A"}]}
+  ],
+  "schemaVersion": 39,
+  "tags": ["phishguard", "mlops"],
+  "templating": {"list": []},
+  "time": {"from": "now-6h", "to": "now"},
+  "title": "PhishGuard Monitoring",
+  "uid": "phishguard",
+  "version": 1
+}

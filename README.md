@@ -6,6 +6,7 @@ It does not visit, resolve, or request any URL values from the dataset.
 
 Step 2 adds a FastAPI inference service with a Jinja2 web frontend and Docker
 packaging. It exposes `/health`, `/predict`, and a browser-based URL checker.
+The service also exposes Prometheus-compatible metrics at `/metrics`.
 
 ## Setup
 
@@ -89,6 +90,33 @@ curl -X POST http://127.0.0.1:8000/predict \
 The service extracts the same features used in training, loads the saved model,
 and returns the predicted class and confidence. It never visits the submitted
 URL.
+
+Prometheus metrics are available at:
+
+```bash
+curl http://127.0.0.1:8000/metrics
+```
+
+The metrics include request counts, prediction counts by class, prediction
+latency, and prediction errors. Kubernetes is not required for this monitoring
+endpoint.
+
+## Monitoring with Prometheus and Grafana
+
+Start the full local monitoring stack:
+
+```bash
+docker compose up --build
+```
+
+- Prometheus: <http://127.0.0.1:9090>
+- Grafana: <http://127.0.0.1:3000>
+- Grafana login: `admin` / `admin`
+
+The `PhishGuard Monitoring` dashboard is provisioned automatically. It shows
+prediction totals, phishing predictions, errors, prediction rate by class, and
+95th-percentile prediction latency. Kubernetes is intentionally not part of
+this project path.
 
 For the web frontend, open <http://127.0.0.1:8000/> and enter a URL in the
 form. The Jinja2 page displays the prediction and confidence.
