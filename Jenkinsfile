@@ -22,10 +22,11 @@ pipeline {
             steps {
                 sh '''
                     set -eu
-                    python3 -m venv .jenkins-venv
-                    .jenkins-venv/bin/python -m pip install --upgrade pip
-                    .jenkins-venv/bin/python -m pip install -e ".[dev]"
-                    .jenkins-venv/bin/python -m pytest -q
+                    docker run --rm \
+                        --volume "$WORKSPACE:/app" \
+                        --workdir /app \
+                        python:3.12-slim \
+                        sh -c 'python -m pip install --upgrade pip && python -m pip install -e ".[dev]" && python -m pytest -q'
                 '''
             }
         }
@@ -71,7 +72,6 @@ pipeline {
             sh '''
                 docker rm --force "$CONTAINER_NAME" >/dev/null 2>&1 || true
                 docker rmi "$IMAGE_NAME" >/dev/null 2>&1 || true
-                rm -rf .jenkins-venv
             '''
         }
     }
