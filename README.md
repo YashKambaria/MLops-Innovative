@@ -153,6 +153,18 @@ from the image.
 pytest -q
 ```
 
+## Project guides
+
+Detailed project documentation is available as PDFs in `output/pdf/`:
+
+- [Model Training and Logic](output/pdf/PhishGuard-Model-Training-and-Logic.pdf)
+- [Backend Service](output/pdf/PhishGuard-Backend-Service-Guide.pdf)
+- [Prometheus and Grafana Monitoring](output/pdf/PhishGuard-Prometheus-and-Grafana-Guide.pdf)
+- [Jenkins A-Z Setup](output/pdf/PhishGuard-Jenkins-AZ-Setup.pdf)
+
+The guides explain the implementation, commands, architecture, verification
+steps, and common troubleshooting issues.
+
 ## Jenkins CI/CD
 
 The root `Jenkinsfile` defines the CI pipeline. Configure a Jenkins Pipeline
@@ -164,10 +176,22 @@ job to use this repository and select “Pipeline script from SCM.” Each build
 4. Starts a temporary container and checks `/health` and `/predict`.
 5. Removes the temporary container and image in the cleanup stage.
 
-The Jenkins agent must have Python 3, Docker, and `curl` installed, with
-permission to run Docker commands. Kubernetes is not required.
+The Jenkins agent must have Git, Docker, and `curl` installed, with permission
+to run Docker commands. The pipeline runs its tests inside the
+`python:3.12-slim` Docker image, so a host Python virtual environment is not
+required for the Jenkins job. Kubernetes is not required.
 
 ## Output artifacts
 
 - `model.joblib`: fitted scaler and Random Forest pipeline.
 - `metadata.json`: feature list, dataset source, split seed, and evaluation metrics.
+
+## Important directories
+
+- `src/phishguard/`: application, feature extraction, training pipeline, and templates.
+- `tests/`: unit and API tests.
+- `data/sample/`: small inert fixture for offline smoke tests.
+- `data/raw/`: downloaded or user-provided dataset files.
+- `artifacts/`: trained model, metadata, and retained dataset artifacts.
+- `monitoring/`: Prometheus configuration and Grafana provisioning/dashboard files.
+- `output/pdf/`: project documentation guides.
