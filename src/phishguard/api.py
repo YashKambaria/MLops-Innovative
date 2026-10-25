@@ -67,6 +67,17 @@ def create_app(model_path: Path | None = None) -> FastAPI:
             confidence=float(max(probabilities)),
         )
 
+    def observed_classify(url: str, route: str) -> PredictionResponse:
+        requests_total.labels(route=route).inc()
+        with prediction_latency.time():
+            try:
+                result = classify_url(url)
+            except HTTPException:
+                errors_total.labels(route=route).inc()
+                raise
+        predictions_total.labels(prediction=result.prediction).inc()
+        return result
+
     @app.get("/health")
     def health() -> dict[str, str]:
         return {"status": "ok", "model": str(resolved_path)}
@@ -90,7 +101,7 @@ def create_app(model_path: Path | None = None) -> FastAPI:
                 status_code=400,
             )
         try:
-            result = classify_url(url)
+            result = observed_classify(url, "check")
         except HTTPException as exc:
             return templates.TemplateResponse(
                 request=request,
@@ -106,15 +117,7 @@ def create_app(model_path: Path | None = None) -> FastAPI:
 
     @app.post("/predict", response_model=PredictionResponse)
     def predict(request: PredictionRequest) -> PredictionResponse:
-        requests_total.labels(route="predict").inc()
-        with prediction_latency.time():
-            try:
-                result = classify_url(request.url)
-            except HTTPException:
-                errors_total.labels(route="predict").inc()
-                raise
-        predictions_total.labels(prediction=result.prediction).inc()
-        return result
+        return observed_classify(request.url, "predict")
 
     return app
 
