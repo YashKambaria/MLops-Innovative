@@ -153,6 +153,20 @@ from the image.
 pytest -q
 ```
 
+## Jenkins CI/CD
+
+The root `Jenkinsfile` defines the CI pipeline. Configure a Jenkins Pipeline
+job to use this repository and select “Pipeline script from SCM.” Each build:
+
+1. Checks out the repository.
+2. Installs the Python dependencies and runs all pytest tests.
+3. Builds the Docker image.
+4. Starts a temporary container and checks `/health` and `/predict`.
+5. Removes the temporary container and image in the cleanup stage.
+
+The Jenkins agent must have Python 3, Docker, and `curl` installed, with
+permission to run Docker commands. Kubernetes is not required.
+
 ## Output artifacts
 
 - `model.joblib`: fitted scaler and Random Forest pipeline.

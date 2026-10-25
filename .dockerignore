@@ -1,6 +1,7 @@
 .git
 .venv
 .venv312
+.jenkins-venv
 __pycache__
 .pytest_cache
 *.py[cod]
