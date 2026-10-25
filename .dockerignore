@@ -1,0 +1,12 @@
+.git
+.venv
+.venv312
+__pycache__
+.pytest_cache
+*.py[cod]
+data/raw
+data/sample
+tests
+artifacts/uci
+artifacts/metadata.json
+README.md
