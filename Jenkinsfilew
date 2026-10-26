@@ -42,83 +42,101 @@ pipeline {
                 '''
             }
         }
+stage('Container smoke test') {
+    steps {
+        powershell '''
+            $ErrorActionPreference = "Stop"
+            $container = $env:CONTAINER_NAME
+            $image = $env:IMAGE_NAME
 
-        stage('Container smoke test') {
-            steps {
-                powershell '''
-                    $ErrorActionPreference = "Stop"
-                    $container = $env:CONTAINER_NAME
-                    $image = $env:IMAGE_NAME
+            try {
+                # Remove an old container only if it exists
+                $existing = docker ps -aq --filter "name=^/$container$"
 
+                if ($LASTEXITCODE -ne 0) {
+                    throw "Failed to query Docker containers."
+                }
+
+                if ($existing) {
+                    docker rm --force $container
+                    if ($LASTEXITCODE -ne 0) {
+                        throw "Failed to remove the existing container."
+                    }
+                }
+
+                # Start the application
+                docker run --detach `
+                    --name $container `
+                    --publish 18000:8000 `
+                    $image
+
+                if ($LASTEXITCODE -ne 0) {
+                    throw "Failed to start the application container."
+                }
+
+                # Wait for the health endpoint
+                $ready = $false
+                $health = $null
+
+                for ($i = 0; $i -lt 30; $i++) {
                     try {
-                        docker rm --force $container 2>$null
+                        $health = Invoke-RestMethod `
+                            -Uri "http://127.0.0.1:18000/health" `
+                            -TimeoutSec 3
 
-                        docker run --detach `
-                            --name $container `
-                            --publish 18000:8000 `
-                            $image
-
-                        if ($LASTEXITCODE -ne 0) {
-                            throw "Failed to start the application container."
-                        }
-
-                        $ready = $false
-                        $health = $null
-
-                        for ($i = 0; $i -lt 30; $i++) {
-                            try {
-                                $health = Invoke-RestMethod `
-                                    -Uri "http://127.0.0.1:18000/health" `
-                                    -TimeoutSec 3
-
-                                $ready = $true
-                                break
-                            }
-                            catch {
-                                Start-Sleep -Seconds 2
-                            }
-                        }
-
-                        if (-not $ready) {
-                            Write-Host "Health check failed. Container logs:"
-                            docker logs $container
-                            throw "Health endpoint did not respond successfully."
-                        }
-
-                        if ($health.status -ne "ok") {
-                            Write-Host "Unexpected health response:"
-                            $health | ConvertTo-Json -Depth 10
-                            throw "Health endpoint did not return status ok."
-                        }
-
-                        Write-Host "Health check passed."
-
-                        $body = @{
-                            url = "https://www.google.com"
-                        } | ConvertTo-Json -Compress
-
-                        $result = Invoke-RestMethod `
-                            -Uri "http://127.0.0.1:18000/predict" `
-                            -Method Post `
-                            -ContentType "application/json" `
-                            -Body $body `
-                            -TimeoutSec 15
-
-                        if ($null -eq $result -or
-                            $null -eq $result.prediction) {
-                            $result | ConvertTo-Json -Depth 10
-                            throw "Prediction response is missing the prediction field."
-                        }
-
-                        Write-Host "Prediction endpoint passed."
-                        Write-Host "Prediction: $($result.prediction)"
+                        $ready = $true
+                        break
                     }
-                    finally {
-                        docker rm --force $container 2>$null
+                    catch {
+                        Start-Sleep -Seconds 2
                     }
-                '''
+                }
+
+                if (-not $ready) {
+                    Write-Host "Health check failed. Container logs:"
+                    docker logs $container
+                    throw "Health endpoint did not respond successfully."
+                }
+
+                if ($health.status -ne "ok") {
+                    $health | ConvertTo-Json -Depth 10
+                    throw "Health endpoint did not return status ok."
+                }
+
+                Write-Host "Health check passed."
+
+                # Test prediction endpoint
+                $body = @{
+                    url = "https://www.google.com"
+                } | ConvertTo-Json -Compress
+
+                $result = Invoke-RestMethod `
+                    -Uri "http://127.0.0.1:18000/predict" `
+                    -Method Post `
+                    -ContentType "application/json" `
+                    -Body $body `
+                    -TimeoutSec 15
+
+                if ($null -eq $result -or
+                    $null -eq $result.prediction) {
+                    $result | ConvertTo-Json -Depth 10
+                    throw "Prediction response is missing the prediction field."
+                }
+
+                Write-Host "Prediction endpoint passed."
+                Write-Host "Prediction: $($result.prediction)"
             }
-        }
+            finally {
+                # Remove the container only if it exists
+                $existing = docker ps -aq --filter "name=^/$container$"
+
+                if ($LASTEXITCODE -eq 0 -and $existing) {
+                    docker rm --force $container
+                }
+            }
+        '''
+    }
+}
     }
 
     post {
