@@ -1,0 +1,102 @@
+```groovy
+pipeline {
+    agent any
+
+    options {
+        timestamps()
+        disableConcurrentBuilds()
+    }
+
+    environment {
+        IMAGE_NAME = "phishguard:${BUILD_NUMBER}"
+        CONTAINER_NAME = "phishguard-ci-${BUILD_NUMBER}"
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Install and test') {
+            steps {
+                bat '''
+                    @echo off
+                    docker run --rm ^
+                        --mount "type=bind,source=%WORKSPACE%,target=/app" ^
+                        --workdir /app ^
+                        python:3.12-slim ^
+                        sh -c "python -m pip install --upgrade pip && python -m pip install -e \".[dev]\" && python -m pytest -q"
+
+                    if errorlevel 1 exit /b 1
+                '''
+            }
+        }
+
+        stage('Build Docker image') {
+            steps {
+                bat 'docker build --tag "%IMAGE_NAME%" .'
+            }
+        }
+
+        stage('Container smoke test') {
+            steps {
+                bat '''
+                    @echo off
+                    docker rm --force "%CONTAINER_NAME%" 2>NUL
+
+                    docker run --detach ^
+                        --name "%CONTAINER_NAME%" ^
+                        --publish 18000:8000 ^
+                        "%IMAGE_NAME%"
+
+                    if errorlevel 1 exit /b 1
+
+                    set "READY=0"
+
+                    for /L %%i in (1,1,30) do (
+                        if "!READY!"=="0" (
+                            curl.exe --fail --silent http://127.0.0.1:18000/health -o health-response.json
+                            if not errorlevel 1 set "READY=1"
+                            if "!READY!"=="0" timeout /t 2 /nobreak >NUL
+                        )
+                    )
+
+                    if "!READY!"=="0" (
+                        docker logs "%CONTAINER_NAME%"
+                        exit /b 1
+                    )
+
+                    findstr /C:""status":"ok"" health-response.json >NUL
+                    if errorlevel 1 exit /b 1
+
+                    curl.exe --fail --silent --show-error ^
+                        --request POST http://127.0.0.1:18000/predict ^
+                        --header "Content-Type: application/json" ^
+                        --data "{\\"url\\":\\"https://www.google.com\\"}" ^
+                        -o prediction-response.json
+
+                    if errorlevel 1 exit /b 1
+
+                    findstr /C:"prediction" prediction-response.json >NUL
+                    if errorlevel 1 exit /b 1
+
+                    docker rm --force "%CONTAINER_NAME%"
+                '''
+            }
+        }
+    }
+
+    post {
+        always {
+            bat '''
+                @echo off
+                docker rm --force "%CONTAINER_NAME%" 2>NUL
+                docker rmi "%IMAGE_NAME%" 2>NUL
+                exit /b 0
+            '''
+        }
+    }
+}
+```
